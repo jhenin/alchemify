@@ -1,14 +1,14 @@
 /******************************************************************************
  *                                                                            *
- *  alchemify -- version 1.1                                                  *
+ *  alchemify -- version 1.2                                                  *
  *                                                                            *
  *  prepare a PSF file for alchemical FEP transformations :                   *
- *  - remove parameters (bonds, angles, dihedrals & impropers)                *
+ *  - remove parameters (angles, dihedrals & impropers)                       *
  *  coupling the initial and final groups                                     *
  *  - add exclusions between all the atoms of the initial group               *
  *  and those of the final group                                              *
  *                                                                            *
- *  Copyright (C) 2006 Jérôme Hénin <jerome.henin@uhp-nancy.fr>               *
+ *  Copyright (C) 2006 Jerome Henin <jerome.henin@cmm.upenn.edu>              *
  *                                                                            *    
  *  This program is free software; you can redistribute it and/or modify      *
  *  it under the terms of the GNU General Public License, version 2, as       *
@@ -23,6 +23,9 @@
  *  along with this program; if not, write to the Free Software               *
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA *
  ******************************************************************************/
+
+#define MAJOR_VERSION 1
+#define MINOR_VERSION 2
   
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,7 +85,8 @@ int main(int argc, char **argv) {
 /************************************************************************************/
 /************************************************************************************/
 void	usage(void) {
-	printf("\nAlchemify 1.1\nhttp://www.edam.uhp-nancy.fr/Alchemify\n\n");
+	printf("\nAlchemify %u.%u\nhttp://www.edam.uhp-nancy.fr/Alchemify\n\n",
+		MAJOR_VERSION, MINOR_VERSION);
 	printf("Usage : alchemify input.psf output.psf FEPfile.fep [FEP_column]\n"
 		"(default column is B)\n\n");
 	printf("Distributed under the terms of the GNU General Public License, version 2\n"
@@ -175,7 +179,7 @@ int	readPDB(char *pdb, char col, int *initial, int *final, int *nInitial, int *n
 /************************************************************************************/
 int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 		int nInitial, int nFinal) {
-    int		n, i, j, removed, a, wrong;
+    int		n, i, j, removed, a, wrong, bonds;
     int		tab[4];
     char	buf[512];
 
@@ -230,22 +234,23 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	if (skip_line(in)) DIE("unexpected EOF before ANGLES")
 	
 	// WRITE
-	removed = 0;
+	bonds = 0;
 	for (i=0; i<n; i++)
 	    if (couples(p+2*i, 2, initial, final, nInitial, nFinal)) {
-		removed++;
+		bonds++;
 		wrong = 2*i;
 	    }
 
-	if (removed) {
-	    printf("WARNING : removing %i bonds coupling initial and final groups\n",  removed);
-	    printf(" *** THE SETUP IS VERY LIKELY TO BE WRONG, PLEASE DOUBLE-CHECK ***\n");
+	if (bonds) {
+	    printf("WARNING : there are %i bonds coupling initial and final groups\n",  bonds);
+	    printf("The BONDS section will be left unchanged.\n");
+	    printf(" *** THE SETUP IS UNUSUAL, AND LIKELY TO BE WRONG, PLEASE DOUBLE-CHECK ***\n");
 	    printf(" *** SEE E.G. BOND BETWEEN ATOMS %i AND %i ***\n\n", p[wrong], p[wrong+1]);
 	}
 
-	fprintf(out, "%8i !NBOND: bonds\n", n-removed);
+	// Special case of bonds: leave them alone - after warning the user
+	fprintf(out, "%8i !NBOND: bonds\n", n);
 	for (i=0; i<n; i++)
-	    if (!couples(p+2*i, 2, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+2*i, 2, 4);
 	
 	write_ints(NULL, NULL, 0, 0);	// end section
