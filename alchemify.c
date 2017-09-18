@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- *  alchemify -- version 1.0                                                  *
+ *  alchemify -- version 1.1                                                  *
  *                                                                            *
  *  prepare a PSF file for alchemical FEP transformations :                   *
  *  - remove parameters (bonds, angles, dihedrals & impropers)                *
@@ -8,12 +8,11 @@
  *  - add exclusions between all the atoms of the initial group               *
  *  and those of the final group                                              *
  *                                                                            *
- *  Copyright (C) 2005 Jérôme Hénin <jerome.henin@uhp-nancy.fr>               *
+ *  Copyright (C) 2006 Jérôme Hénin <jerome.henin@uhp-nancy.fr>               *
  *                                                                            *    
  *  This program is free software; you can redistribute it and/or modify      *
- *  it under the terms of the GNU General Public License as published by      *
- *  the Free Software Foundation; either version 2 of the License, or         *
- *  (at your option) any later version.                                       *
+ *  it under the terms of the GNU General Public License, version 2, as       *
+ *  published by the Free Software Foundation.                                *
  *                                                                            *
  *  This program is distributed in the hope that it will be useful,           *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of            *
@@ -57,7 +56,7 @@ int main(int argc, char **argv) {
     }
 
     natoms = readPDB(argv[3], col, initial, final, &nInitial, &nFinal);
-    printf("\nFEPfile : %i atoms found, %i initial, %i final.\n", natoms, nInitial, nFinal);
+    printf("\nFEPfile : %i atoms found, %i initial, %i final.\n\n", natoms, nInitial, nFinal);
 
     if (!(nFinal || nInitial)) DIE("no atoms involved in the transformation")
 
@@ -83,10 +82,10 @@ int main(int argc, char **argv) {
 /************************************************************************************/
 /************************************************************************************/
 void	usage(void) {
-	printf("\nAlchemify 1.0\nhttp://www.edam.uhp-nancy.fr/Alchemify\n\n");
+	printf("\nAlchemify 1.1\nhttp://www.edam.uhp-nancy.fr/Alchemify\n\n");
 	printf("Usage : alchemify input.psf output.psf FEPfile.fep [FEP_column]\n"
 		"(default column is B)\n\n");
-	printf("Distributed under the terms of the GNU General Public License\n"
+	printf("Distributed under the terms of the GNU General Public License, version 2\n"
 		"(see LICENSE or http://www.gnu.org/copyleft/gpl.html)\n\n");
 	exit(EXIT_SUCCESS);
 }
@@ -113,6 +112,7 @@ int	readPDB(char *pdb, char col, int *initial, int *final, int *nInitial, int *n
     int		start, end;	// range of columns in the PDB file
     int		natoms = 0;
     float	input;
+    int		end_reached = 0;
     
     *nFinal = 0;
     *nInitial = 0;
@@ -144,7 +144,7 @@ int	readPDB(char *pdb, char col, int *initial, int *final, int *nInitial, int *n
     while (!feof(f)) {
 	fgets(line, 256, f);
 
-	if(line[0]=='A'&&line[1]=='T'&&line[2]=='O'&&line[3]=='M') {
+	if (line[0]=='A'&&line[1]=='T'&&line[2]=='O'&&line[3]=='M') {
 	    natoms++;
 	    line[end]='\0';
 	    sscanf( line + start - 1, "%f", &input);
@@ -156,7 +156,14 @@ int	readPDB(char *pdb, char col, int *initial, int *final, int *nInitial, int *n
 		if (*nInitial>=MAX_GROUP_SIZE) DIE("too many initial atoms")
 		initial[(*nInitial)++] = natoms;
 	    }
+	} else if (!strcmp(line, "END") || !strcmp(line, "END\n")) {
+	    end_reached = 1;
+	    break;
 	}
+    }
+
+    if (!end_reached) {
+	printf("WARNING: END keyword not found at the end of file %s\n", pdb);
     }
     
     fclose(f);
@@ -168,7 +175,7 @@ int	readPDB(char *pdb, char col, int *initial, int *final, int *nInitial, int *n
 /************************************************************************************/
 int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 		int nInitial, int nFinal) {
-    int		n, i, j, removed, a;
+    int		n, i, j, removed, a, wrong;
     int		tab[4];
     char	buf[512];
 
@@ -212,7 +219,7 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
     if (fscanf(in, "%i !NBOND", &n) != 1) DIE("could not read number of bonds")
     if (skip_line(in)) DIE("unexpected EOF before BONDS")
 
-    printf("%i bonds", n);
+    //printf("%i bonds", n);
 
     if (n) {
 	if (!(p=calloc(2*n, sizeof(int))))
@@ -227,14 +234,20 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	for (i=0; i<n; i++)
 	    if (couples(p+2*i, 2, initial, final, nInitial, nFinal)) {
 		removed++;
+		wrong = 2*i;
 	    }
-	printf(" : removing %i bonds coupling initial and final groups\n", removed);
+
+	if (removed) {
+	    printf("WARNING : removing %i bonds coupling initial and final groups\n",  removed);
+	    printf(" *** THE SETUP IS VERY LIKELY TO BE WRONG, PLEASE DOUBLE-CHECK ***\n");
+	    printf(" *** SEE E.G. BOND BETWEEN ATOMS %i AND %i ***\n\n", p[wrong], p[wrong+1]);
+	}
 
 	fprintf(out, "%8i !NBOND: bonds\n", n-removed);
-	for (i=0; i<n; i++) {
+	for (i=0; i<n; i++)
 	    if (!couples(p+2*i, 2, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+2*i, 2, 4);
-	}
+	
 	write_ints(NULL, NULL, 0, 0);	// end section
 	free(p);
     } else {
@@ -262,16 +275,16 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	// WRITE
 	removed = 0;
 	for (i=0; i<n; i++)
-	    if (couples(p+3*i, 3, initial, final, nInitial, nFinal)) {
+	    if (couples(p+3*i, 3, initial, final, nInitial, nFinal))
 		    removed++;
-		}
+
 	printf(" : removing %i angles coupling initial and final groups\n", removed);
 
 	fprintf(out, "%8i !NTHETA: angles\n", n-removed);
-	for (i=0; i<n; i++) {
+	for (i=0; i<n; i++)
 	    if (!couples(p+3*i, 3, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+3*i, 3, 3);
-	}
+
 	write_ints(NULL, NULL, 0, 0);	// end section
 	free(p);
     } else {
@@ -298,16 +311,16 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	// WRITE
 	removed = 0;
 	for (i=0; i<n; i++)
-	    if (couples(p+4*i, 4, initial, final, nInitial, nFinal)) {
+	    if (couples(p+4*i, 4, initial, final, nInitial, nFinal))
 		    removed++;
-	    }
+
 	printf(" : removing %i dihedrals coupling initial and final groups\n", removed);
 
 	fprintf(out, "%8i !NPHI: dihedrals\n", n-removed);
-	for (i=0; i<n; i++) {
+	for (i=0; i<n; i++)
 	    if (!couples(p+4*i, 4, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+4*i, 4, 2);
-	}
+
 	write_ints(NULL, NULL, 0, 0);	// end section
 	free(p);
     } else {
@@ -334,16 +347,16 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	// WRITE
 	removed = 0;
 	for (i=0; i<n; i++)
-	    if (couples(p+4*i, 4, initial, final, nInitial, nFinal)) {
+	    if (couples(p+4*i, 4, initial, final, nInitial, nFinal))
 		removed++;
-	    }
-	printf(" : removing %i impropers coupling initial and final groups\n", removed);
+
+	printf(" : removing %i impropers coupling initial and final groups\n\n", removed);
 
 	fprintf(out, "%8i !NIMPHI: impropers\n", n-removed);
-	for (i=0; i<n; i++) {
+	for (i=0; i<n; i++)
 	    if (!couples(p+4*i, 4, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+4*i, 4, 2);
-	}
+
 	write_ints(NULL, NULL, 0, 0);	// end section
 	free(p);
     } else {
@@ -487,16 +500,16 @@ int skip_line(FILE *f) {
 /************************************************************************************/
 /* Reads groups of n integers							    */
 /************************************************************************************/
-int	read_ints(FILE *f, int *p, int n) {
+int read_ints(FILE *f, int *p, int n) {
 
-	int		i;
+    int	i;
 	
-	for (i=0; i<n; i++) {
-		if (fscanf(f, "%i", (p+i)) != 1)
-			return 1;
-	}
+    for (i=0; i<n; i++) {
+	if (fscanf(f, "%i", (p+i)) != 1)
+	    return 1;
+    }
 
-	return 0;
+    return 0;
 }
 
 /************************************************************************************/
