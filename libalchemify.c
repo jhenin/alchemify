@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include "libalchemify.h"
 
 /* Private functions */
@@ -11,7 +12,7 @@ int	readPDB(char *pdb, char col, int *initial, int *final, int *nInitial, int *n
     FILE	*f;
     char	line[256];
 
-    int		start, end;	// range of columns in the PDB file
+    int		start, end;	/* range of columns in the PDB file */
     int		natoms = 0;
     float	input;
     int		end_reached = 0;
@@ -77,32 +78,32 @@ int	readPDB(char *pdb, char col, int *initial, int *final, int *nInitial, int *n
 int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 		int nInitial, int nFinal) {
     int		n, i, j, removed, a, bonds;
-    int		wrong = 0;
     int		tab[4];
     char	buf[512];
+    int		*p;	/* to store BONDS, ANGLES, DIHEDS etc. */
+    int		wrong = 0;
 
-    int		*p;	// to store BONDS, ANGLES, DIHEDS etc.
-
-    if (fscanf(in, "PSF"))
-	    DIE("no \"PSF\" header string found in PSF file")
+    if (!fgets(buf, 512, in)) DIE("error or EOF while reading PSF header")
+    if ( !(buf[0]=='P' && buf[1] == 'S' && buf[2] == 'F') )
+	    DIE("\"PSF\" header string not found in PSF file")
+    fputs(buf, out);
 
     if (skip_line(in)) DIE("unexpected EOF")
-
-    fprintf(out, "PSF\n\n");
+    fprintf(out, "\n");
 	    
-    // read title
+    /* read title */
     if (fscanf(in, "%i !NTITLE", &n) != 1) DIE("could not read number of title lines")
     if (skip_line(in)) DIE("unexpected EOF")
     fprintf(out, "%8i !NTITLE\n", n);
 
     for (i=0; i<n; i++) {
-	if (!fgets(buf, 512, in)) DIE("error or EOF while reading title")
-	fputs(buf, out);
+      if (!fgets(buf, 512, in)) DIE("error or EOF while reading title")
+      fputs(buf, out);
     }
     if (skip_line(in)) DIE("unexpected EOF before atoms")
     fputc('\n', out);
 
-    // read atoms
+    /* read atoms */
     if (fscanf(in, "%i !NATOM", &n) != 1) DIE("could not read number of atoms")
     if (n != natoms) DIE("incorrect number of atoms in PSF file")
 
@@ -114,9 +115,9 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	fputs(buf, out);
     }
 		
-    // number of bonds
+    /* number of bonds */
     if (skip_line(in)) DIE("unexpected EOF before BONDS")
-    fputc('\n', out);	// blank line
+    fputc('\n', out);	/* blank line */
 
     if (fscanf(in, "%i !NBOND", &n) != 1) DIE("could not read number of bonds")
     if (skip_line(in)) DIE("unexpected EOF before BONDS")
@@ -125,11 +126,11 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	if (!(p=calloc(2*n, sizeof(int))))
 	    DIE("memory allocation failure")
 	
-	// READ
+	/* READ */
 	if (read_ints(in, p, 2 * n)) FREE_AND_DIE(p, "reading BONDS")
 	if (skip_line(in)) FREE_AND_DIE(p, "unexpected EOF before ANGLES")
 	
-	// WRITE
+	/* WRITE */
 	bonds = 0;
 	for (i=0; i<n; i++)
 	    if (couples(p+2*i, 2, initial, final, nInitial, nFinal)) {
@@ -144,22 +145,22 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	    printf(" *** SEE E.G. BOND BETWEEN ATOMS %i AND %i ***\n\n", p[wrong], p[wrong+1]);
 	}
 
-	// Special case of bonds: leave them alone - after warning the user
+	/* Special case of bonds: leave them alone - after warning the user */
 	fprintf(out, "%8i !NBOND: bonds\n", n);
 	for (i=0; i<n; i++)
 	    write_ints(out, p+2*i, 2, 4);
 	
-	write_ints(NULL, NULL, 0, 0);	// end section
+	write_ints(NULL, NULL, 0, 0);	/* end section */
 	free(p);
     } else {
 	putc('\n', stdout);
 	fprintf(out, "%8i !NBOND: bonds\n", 0);
     }
 
-    fprintf(out, "\n\n");	// blank line
+    fprintf(out, "\n\n");	/* blank line */
 
 
-    // angles
+    /* angles */
     if (fscanf(in, "%i !NTHETA", &n) != 1) DIE("could not read number of angles")
     if (skip_line(in)) DIE("unexpected EOF before ANGLES")
 
@@ -169,11 +170,11 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	if (!(p=calloc(3*n, sizeof(int))))
 	    DIE("memory allocation failure")
 	
-	// READ
+	/* READ */
 	if (read_ints(in, p, 3 * n)) FREE_AND_DIE(p, "reading ANGLES")
 	if (skip_line(in)) FREE_AND_DIE(p, "unexpected EOF before ANGLES")
 	
-	// WRITE
+	/* WRITE */
 	removed = 0;
 	for (i=0; i<n; i++)
 	    if (couples(p+3*i, 3, initial, final, nInitial, nFinal))
@@ -186,16 +187,16 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	    if (!couples(p+3*i, 3, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+3*i, 3, 3);
 
-	write_ints(NULL, NULL, 0, 0);	// end section
+	write_ints(NULL, NULL, 0, 0);	/* end section */
 	free(p);
     } else {
 	putc('\n', stdout);
 	fprintf(out, "%8i !NTHETA: angles\n", 0);
     }
 
-    fprintf(out, "\n\n");	// blank line
+    fprintf(out, "\n\n");	/* blank line */
 
-    // dihedrals
+    /* dihedrals */
     if (fscanf(in, "%i !NPHI", &n) != 1) DIE("could not read number of dihedrals")
     if (skip_line(in)) DIE("unexpected EOF before dih")
 
@@ -205,11 +206,11 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	if (!(p=calloc(4*n, sizeof(int))))
 	    DIE("memory allocation failure")
 	
-	// READ
+	/* READ */
 	if (read_ints(in, p, 4 * n)) FREE_AND_DIE(p, "reading DIHEDRALS")
 	if (skip_line(in)) FREE_AND_DIE(p, "unexpected EOF before ANGLES")
 	
-	// WRITE
+	/* WRITE */
 	removed = 0;
 	for (i=0; i<n; i++)
 	    if (couples(p+4*i, 4, initial, final, nInitial, nFinal))
@@ -222,16 +223,16 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	    if (!couples(p+4*i, 4, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+4*i, 4, 2);
 
-	write_ints(NULL, NULL, 0, 0);	// end section
+	write_ints(NULL, NULL, 0, 0);	/* end section */
 	free(p);
     } else {
 	putc('\n', stdout);
 	fprintf(out, "%8i !NPHI: dihedrals\n", 0);
     }
 
-    fprintf(out, "\n\n");	// blank line
+    fprintf(out, "\n\n");	/* blank line */
 
-    // impropers
+    /* impropers */
     if (fscanf(in, "%i !NIMPHI", &n) != 1) DIE("could not read number of impropers")
     if (skip_line(in)) DIE("unexpected EOF before impropers")
 
@@ -241,11 +242,11 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	if (!(p=calloc(4*n, sizeof(int))))
 	    DIE("memory allocation failure")
 	
-	// READ
+	/* READ */
 	if(read_ints(in, p, 4 * n)) FREE_AND_DIE(p, "reading IMPROPERS")
 	if (skip_line(in)) FREE_AND_DIE(p, "unexpected EOF before IMPR")
 	
-	// WRITE
+	/* WRITE */
 	removed = 0;
 	for (i=0; i<n; i++)
 	    if (couples(p+4*i, 4, initial, final, nInitial, nFinal))
@@ -258,17 +259,17 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	    if (!couples(p+4*i, 4, initial, final, nInitial, nFinal)) 
 		write_ints(out, p+4*i, 4, 2);
 
-	write_ints(NULL, NULL, 0, 0);	// end section
+	write_ints(NULL, NULL, 0, 0);	/* end section */
 	free(p);
     } else {
 	putc('\n', stdout);
 	fprintf(out, "%8i !NIMPHI: impropers\n", 0);
     }
 
-    fprintf(out, "\n\n");	// blank line
+    fprintf(out, "\n\n");	/* blank line */
 
 
-    // donors
+    /* donors */
     if (fscanf(in, "%i !NDON", &n) != 1) DIE("could not read number of donors")
     if (skip_line(in)) DIE("unexpected EOF")
 
@@ -279,12 +280,12 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	    if (read_ints(in, tab, 2)) DIE("reading DONORS")
 	    write_ints(out, tab, 2, 4);
 	}
-	write_ints(NULL, NULL, 0, 0);	// end section
+	write_ints(NULL, NULL, 0, 0);	/* end section */
 	if (skip_line(in)) DIE("unexpected EOF")
     }
-    fprintf(out, "\n\n");	// blank line
+    fprintf(out, "\n\n");	/* blank line */
 
-    // acceptors
+    /* acceptors */
     if (fscanf(in, "%i !NACC", &n) != 1) DIE("could not read number of acceptors")
     if (skip_line(in)) DIE("unexpected EOF")
 
@@ -295,23 +296,23 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	    if (read_ints(in, tab, 2)) DIE("reading ACCEPTORS")
 	    write_ints(out, tab, 2, 4);
 	}
-	write_ints(NULL, NULL, 0, 0);	// end section
+	write_ints(NULL, NULL, 0, 0);	/* end section */
 	if (skip_line(in)) DIE("unexpected EOF")
     }
-    fprintf(out, "\n\n");	// blank line
+    fprintf(out, "\n\n");	/* blank line */
 
-    // exclusions
+    /* exclusions */
     if (fscanf(in, "%i !NNB", &n) != 1) DIE("could not read number of exclusions")
     if (skip_line(in)) DIE("unexpected EOF")
 
     if (n)
 	printf("WARNING : %i exclusions defined in source PSF, will be ignored\n", n);
 	    
-    // read and forget the lists
+    /* read and forget the lists */
     for (i=0; i<n; i++) {
 	if (read_ints(in, tab, 1)) DIE("reading exclusion lists")
     }
-    // read and forget the indices
+    /* read and forget the indices */
     for (i=0; i<natoms; i++) {
 	if (read_ints(in, tab, 1)) DIE("reading exclusion list indices")
     }
@@ -319,18 +320,18 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
     printf("Writing %i exclusion pairs\n", nInitial*nFinal);
     fprintf(out, "%8i !NNB\n", nInitial*nFinal);
 
-    // Give every "initial" atom an exclusion list with all "final" atoms 	
+    /* Give every "initial" atom an exclusion list with all "final" atoms 	 */
     for (i=0; i<nInitial; i++)
 	for (j=0; j<nFinal; j++)
 	    write_ints(out, final+j, 1, 8);
 
-    write_ints(NULL, NULL, 0, 0);	// end section
+    write_ints(NULL, NULL, 0, 0);	/* end section */
     putc('\n', out);
 
-    i = 0;	// i will be the index in the exclusion lists
+    i = 0;	/* i will be the index in the exclusion lists */
     for (a=1; a<=natoms; a++) {
-	// if a is an "initial" atom, increase the index by
-	// the size of the list
+	/* if a is an "initial" atom, increase the index by
+	 * the size of the list */
 	for (j=0; j<nInitial; j++)
 		if (a == initial[j])
 			i += nFinal;
@@ -338,8 +339,8 @@ int	process(FILE *in, FILE *out, int natoms, int *initial, int *final,
 	write_ints(out, &i, 1, 8);
     }
 	    
-    write_ints(NULL, NULL, 0, 0);	// end section
-    // just copy the end of the file without modification
+    write_ints(NULL, NULL, 0, 0);	/* end section */
+    /* just copy the end of the file without modification */
     
     while (!feof(in)) {
 	if (!fgets(buf, 512, in)) break;
@@ -382,17 +383,17 @@ int couples(int *p, int n, int *initial, int *final, int nInitial, int nFinal) {
 int skip_line(FILE *f) {
     char c=' ';
 
-    while (c!='\n' && !feof(f))	// seek next newline
+    while (c!='\n' && !feof(f))	/* seek next newline */
 	c=fgetc(f);
 
     if (feof(f)) return 1;
 
-    while (c=='\n' && !feof(f))	// read all the following '\n's
+    while (c=='\n' && !feof(f))	/* read all the following '\n's */
 	c=fgetc(f);
     
     if (feof(f)) return 1;
 
-    ungetc(c, f);	// the last one is not a newline
+    ungetc(c, f);	/* the last one is not a newline */
     
     return 0;
 }
@@ -419,14 +420,14 @@ int read_ints(FILE *f, int *p, int n) {
 int write_ints(FILE *f, int *p, int n, int per_line) {
 
     int		i;
-    static int	written;	// number of fields written in current line
+    static int	written;	/* number of fields written in current line */
 
-    if (!f) {		// end of section
+    if (!f) {		/* end of section */
 	written = 0;
 	return 0;
     }
 
-    if (written >= per_line) {	// line completed
+    if (written >= per_line) {	/* line completed */
 	fputc('\n', f);
 	written = 0;
     }
@@ -434,7 +435,7 @@ int write_ints(FILE *f, int *p, int n, int per_line) {
     for (i=0; i<n; i++) {
 	fprintf(f, "%8i", p[i]);
     }
-    if (i) written++;	// unless we wrote nothing
+    if (i) written++;	/* unless we wrote nothing */
 
     return 0;
 }
