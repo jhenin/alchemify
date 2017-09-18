@@ -1,0 +1,32 @@
+/************************************************************************
+ *                                                                      *
+ *  alchemify  -- Beta Version                                          *
+ *                                                                      *
+ *  prepare an X-PLOR PSF file for alchemical FEP transformations :     *
+ *  - remove parameters (bonds, angles, dihedrals & impropers)          *
+ *  coupling the initial and final groups                               *
+ *  - add exclusions between all the atoms of the initial group         *
+ *  and those of the final group                                        *
+ *                                                                      *
+ * (C) Jerome Henin <jerome.henin@uhp-nancy.fr>, March 2004             *
+ * This program is distributed under the GNU General Public License     *
+ * (see http://www.gnu.org/copyleft/gpl.html)                           *
+ ************************************************************************/
+
+How to make a dual-topology alchemical setup using alchemify :
+
+* Generate an X-PLOR PSF containing the dual topology, using either
+psfgen,or CHARMM, or any other tool. This PSF may contain auto-generated
+angles and dihedrals, you don't have to worry about these. The
+unavoidable part of the work is to define the dual topology
+more or less by hand, unless the alchemical transformation affects
+only whole molecules and not parts of them.
+
+* Create an "FEPfile", that is, a PDB file for your system with a
+column (X, Y, Z, O or B) containing 1 for atoms that appear and
+-1 for atoms that disappear.
+
+* Run "alchemify input.psf output.psf FEPfile", adding the name of
+the FEP column as a last parameter (if it is not B).
+
+* Please send bug reports and suggestions to the author
