@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
 
 void	usage(void) {
-	printf("\nAlchemify %u.%u\nhttp:/*www.edam.uhp-nancy.fr/Alchemify\n\n",
+	printf("\nAlchemify %u.%u\nhttps://github.com/jhenin/alchemify\n\n",
 		MAJOR_VERSION, MINOR_VERSION);
 	printf("Usage : alchemify input.psf output.psf FEPfile.fep [FEP_column]\n"
 		"(default column is B)\n\n");
