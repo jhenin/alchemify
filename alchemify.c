@@ -24,7 +24,10 @@ int main(int argc, char **argv) {
     char	col;
     FILE	*in, *out;	
     int	nFinal, nInitial, natoms;
-    int	final[MAX_GROUP_SIZE], initial[MAX_GROUP_SIZE];	
+    int	final[MAX_GROUP_SIZE], initial[MAX_GROUP_SIZE];
+
+	printf("\nAlchemify %u.%u by Jerome Henin <henin@ibpc.fr>\nhttps://github.com/jhenin/alchemify\n\n",
+		MAJOR_VERSION, MINOR_VERSION);
 
     if ((col=cmd_line(argc, argv))=='e') {
         usage();
@@ -61,8 +64,6 @@ int main(int argc, char **argv) {
 
 
 void	usage(void) {
-	printf("\nAlchemify %u.%u\nhttps://github.com/jhenin/alchemify\n\n",
-		MAJOR_VERSION, MINOR_VERSION);
 	printf("Usage : alchemify input.psf output.psf FEPfile.fep [FEP_column]\n"
 		"(default column is B)\n\n");
 	printf("Distributed under the terms of the GNU General Public License, version 2\n"
