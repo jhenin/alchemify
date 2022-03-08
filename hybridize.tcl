@@ -73,6 +73,20 @@ proc hybridize { psfA pdbA psfB pdbB } {
 
     # Delete all BC atoms by creating new molecule with only the atoms we want to keep
     set keep [atomselect $merged "beta < 1.5"]
+    # # WIP Ordering: common before A, A, B, common after A
+    # # Does not work now because selections2mol loses bonded connections between selections
+    # # We could keep the current call to selections2mol and add a manual reordering step
+    # set keep [list]
+    # set A [atomselect $merged "beta = -1"]
+    # set B [atomselect $merged "beta = 1"]
+    # set firstA [lindex [$A list] 0]
+    # set C1 [atomselect $merged "beta = 0 and index < $firstA"]
+    # if { [$C1 num] > 0 } { lappend keep $C1 }
+    # if { [$A num] > 0 } { lappend keep $A }
+    # if { [$B num] > 0 } { lappend keep $B }
+    # set C2 [atomselect $merged "beta = 0 and index > $firstA"]
+    # if { [$C2 num] > 0 } { lappend keep $C2 }
+
     set hybrid [::TopoTools::selections2mol $keep]
     if { $hybrid == -1 } {
         puts "Error extracting relevant atoms"
@@ -81,6 +95,10 @@ proc hybridize { psfA pdbA psfB pdbB } {
     set all_hyb [atomselect $hybrid all]
     $all_hyb set beta [$keep get beta]
     $keep delete
+    # WIP
+    # $all_hyb set beta [concat [$C1 get beta] [$A get beta] [$B get beta] [$C2 get beta]]
+    # foreach s $keep { $s delete }
+
     $all_hyb delete
     mol delete $merged
 
