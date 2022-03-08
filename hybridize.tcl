@@ -19,18 +19,26 @@ proc hybridize { psfA pdbA psfB pdbB } {
     set all [atomselect $merged "all"]
 
     #- Detect common atoms, which have the same: segname, (resname), resid, atom name, atom type, atom charge
-    set A_ids [$sA get { segname resid name type charge }]
-    set B_ids [$sB get { segname resid name type charge }]
+    set A_ids [$sA get { segname resid name type }]
+    set qA [$sA get charge]
+    set B_ids [$sB get { segname resid name type }]
+    set qB [$sB get charge]
 
     #- atoms classified as A, B, C (common), BC (copy of common atom in B)
     # with beta factor -1, 1, 0 , 2
     # Mark all atoms as 1 (B) to start with
     set beta [lrepeat $ntotal 1]
 
-    foreach i [$sA list] {
+    foreach i [$sA list] qA_i $qA {
         # Look for atom in molecule B with same signature
         set match [lsearch $B_ids [lindex $A_ids $i]]
-        if { $match > 0 } {
+        set qB_i   0
+        set q_tol  1e-2  ;# tolerance for "equal" charges
+        if { $match > -1 } {
+            set qB_i [lindex $qB $match]
+        }
+
+        if { $match > -1 && [expr abs($qA_i - $qB_i) < $q_tol] } {
             lset beta $i 0
             # matching atom in B marked as redundant
             lset beta [expr {$match + $offset}] 2
