@@ -48,17 +48,26 @@ proc hybridize { psfA pdbA psfB pdbB } {
             lset beta $i -1
         }
     }
-    # Any atom left at 1 at this point is unique to B
+    # Any atom still at beta == 1 at this point is unique to B
     $all set beta $beta
     $all delete
 
-    #- check that atoms in A, B, AC have unique segname/resid/name, rename as necessary
+    set CA [atomselect $merged "beta = 0"]
+    set CA_ids [$CA list]
+    set CB [atomselect $merged "beta = 2"]
+    # Build list of indices within group CA of atoms corresponding to CB
+    set order [list]
+    foreach i [$CB list] {
+      lappend order [lsearch -integer -sorted $CA_ids $common_map($i)]
+    }
+    set M [measure fit $CB $CA order $order]
+    # Move all of the atoms in the second half
+    $sB move $M
 
-    #-  TODO TODO
     # for any parameter coupling BC and B: replace BC atoms with equivalent C atom id
     # Detect all bonds etc. touching B, and reassign labels for C
     $sB delete
-    set sB [atomselect $merged "beta 1"]
+    set sB [atomselect $merged "beta = 1"]
     reassign_struct $sB [array get common_map]
     $sB delete
 
